@@ -55,7 +55,7 @@ contract SequiBridge is BridgeBase {
     function convert(
         AztecTypes.AztecAsset calldata _inputAssetA,
         AztecTypes.AztecAsset calldata,
-        AztecTypes.AztecAsset calldata,
+        AztecTypes.AztecAsset calldata _outputAssetA,
         AztecTypes.AztecAsset calldata,
         uint256 _totalInputValue,
         uint256,
@@ -73,12 +73,23 @@ contract SequiBridge is BridgeBase {
         )
     {
         CreatorInfo memory receiver = creators[_auxData];
-        uint256 amountOut = _totalInputValue / receiver.paymentAmount;
 
         // Invalid Amount
         if (_totalInputValue < receiver.paymentAmount) {
             revert ErrorLib.InvalidAuxData();
         }
+
+        // make sure eth was donated
+        if (_inputAssetA.assetType != AztecTypes.AztecAssetType.ETH) {
+            revert ErrorLib.InvalidOutputA();
+        }
+
+        // make sure the output is the virtual token
+        if (_outputAssetA.assetType != AztecTypes.AztecAssetType.VIRTUAL) {
+            revert ErrorLib.InvalidOutputA();
+        }
+
+        uint256 amountOut = _totalInputValue / receiver.paymentAmount;
 
         if (_inputAssetA.assetType == AztecTypes.AztecAssetType.ETH) {
             //solhint-disable-next-line
