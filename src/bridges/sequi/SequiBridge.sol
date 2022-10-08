@@ -7,6 +7,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {AztecTypes} from "../../aztec/libraries/AztecTypes.sol";
 import {BridgeBase} from "../base/BridgeBase.sol";
 import {ErrorLib} from "../base/ErrorLib.sol";
+import {console} from "forge-std/console.sol";
 
 /**
  * @author @Carla1nf
@@ -21,7 +22,7 @@ contract SequiBridge is BridgeBase {
     event CreatorCreated(address newCreator, uint256 amount);
 
     // Starts at 1 to revert if users forget to provide auxdata.
-    uint64 public creatorID = 1;
+    uint64 public creatorID;
 
     /* STRUCT */
 
@@ -39,11 +40,12 @@ contract SequiBridge is BridgeBase {
 
     /* Create Struct */
 
-    function createAccount(uint256 amount) internal {
-        creators[creatorID] = CreatorInfo({addr: msg.sender, paymentAmount: amount});
+    function createAccount(uint256 amount) public returns (uint64) {
+        uint64 creator = ++creatorID;
+        creators[creator] = CreatorInfo({addr: msg.sender, paymentAmount: amount});
 
-        creatorID++;
         emit CreatorCreated(msg.sender, amount);
+        return creator;
     }
 
     /**
@@ -72,12 +74,16 @@ contract SequiBridge is BridgeBase {
             bool
         )
     {
+        console.log("convert called");
         CreatorInfo memory receiver = creators[_auxData];
+        console.log("receiver", receiver.addr);
+        console.log("_inputAssetA.address", _inputAssetA.erc20Address);
+        console.log("_totalInputValue", _totalInputValue);
 
-        // Invalid Amount
-        if (_totalInputValue < receiver.paymentAmount) {
-            revert ErrorLib.InvalidAuxData();
-        }
+        // // Invalid Amount
+        // if (_totalInputValue < receiver.paymentAmount) {
+        //     revert ErrorLib.InvalidAuxData();
+        // }
 
         // make sure eth was donated
         if (_inputAssetA.assetType != AztecTypes.AztecAssetType.ETH) {
@@ -95,11 +101,10 @@ contract SequiBridge is BridgeBase {
             //solhint-disable-next-line
             (bool success, ) = payable(receiver.addr).call{gas: 30000, value: _totalInputValue}("");
             if (!success) revert EthTransferFailed();
-        } else if (_inputAssetA.assetType == AztecTypes.AztecAssetType.ERC20) {
-            IERC20(_inputAssetA.erc20Address).safeTransfer(receiver.addr, _totalInputValue);
         } else {
             revert ErrorLib.InvalidInputA();
         }
+
         return (amountOut, 0, false);
     }
 }

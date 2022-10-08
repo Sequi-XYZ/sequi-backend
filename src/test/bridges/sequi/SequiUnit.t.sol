@@ -11,7 +11,7 @@ import {ExampleBridgeContract} from "../../../bridges/example/ExampleBridge.sol"
 import {ErrorLib} from "../../../bridges/base/ErrorLib.sol";
 
 // @notice The purpose of this test is to directly test convert functionality of the bridge.
-contract ExampleUnitTest is BridgeTestBase {
+contract SequiUnitTest is BridgeTestBase {
     address private constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
     address private constant BENEFICIARY = address(11);
 
