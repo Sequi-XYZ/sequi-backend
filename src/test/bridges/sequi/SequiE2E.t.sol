@@ -9,8 +9,9 @@ import {AztecTypes} from "../../../aztec/libraries/AztecTypes.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SequiBridge} from "../../../bridges/sequi/SequiBridge.sol";
 import {ErrorLib} from "../../../bridges/base/ErrorLib.sol";
+import {console} from "forge-std/console.sol";
 
-contract SequiTest is BridgeTestBase {
+contract SequiE2ETest is BridgeTestBase {
     address private constant CREATOR = address(0xb0b);
     uint256 private constant MIN_DONATION = .001 ether;
     uint64 private creatorId;
@@ -24,7 +25,20 @@ contract SequiTest is BridgeTestBase {
     // The receipt token
     AztecTypes.AztecAsset private receiptAsset;
 
+    receive() external payable {
+        console.log("received eth");
+    }
+
     function setUp() public {
+        bridge = new SequiBridge(address(ROLLUP_PROCESSOR));
+
+        vm.prank(CREATOR);
+        vm.label(CREATOR, "Creator");
+        creatorId = bridge.createAccount(MIN_DONATION);
+
+        vm.deal(address(bridge), 0);
+        vm.label(address(bridge), "Example Bridge");
+
         ethAsset = getRealAztecAsset(address(0));
         receiptAsset = AztecTypes.AztecAsset({
             id: 1,
@@ -32,20 +46,15 @@ contract SequiTest is BridgeTestBase {
             assetType: AztecTypes.AztecAssetType.VIRTUAL
         });
 
-        bridge = new SequiBridge(address(ROLLUP_PROCESSOR));
-
-        creatorId = bridge.createAccount(MIN_DONATION);
-
-        vm.deal(address(bridge), 0);
-        vm.label(address(bridge), "Example Bridge");
-
         vm.prank(MULTI_SIG);
         ROLLUP_PROCESSOR.setSupportedBridge(address(bridge), 1_000_000);
         bridgeAddressId = ROLLUP_PROCESSOR.getSupportedBridgesLength();
     }
 
     function testDonateEth() public {
-        vm.deal(address(ROLLUP_PROCESSOR), MIN_DONATION);
+        vm.warp(block.timestamp + 1 days);
+
+        vm.deal(address(ROLLUP_PROCESSOR), 1000 ether);
 
         uint256 creatorBalanceBefore = CREATOR.balance;
 
@@ -62,7 +71,6 @@ contract SequiTest is BridgeTestBase {
         // emit DefiBridgeProcessed(bridgeCallData, getNextNonce(), MIN_DONATION, 0, 0, true, "");
 
         sendDefiRollup(bridgeCallData, MIN_DONATION);
-
         assertEq(CREATOR.balance, creatorBalanceBefore + MIN_DONATION, "did not receive");
     }
 }

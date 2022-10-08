@@ -74,11 +74,7 @@ contract SequiBridge is BridgeBase {
             bool
         )
     {
-        console.log("convert called");
         CreatorInfo memory receiver = creators[_auxData];
-        console.log("receiver", receiver.addr);
-        console.log("_inputAssetA.address", _inputAssetA.erc20Address);
-        console.log("_totalInputValue", _totalInputValue);
 
         // // Invalid Amount
         // if (_totalInputValue < receiver.paymentAmount) {
@@ -87,7 +83,7 @@ contract SequiBridge is BridgeBase {
 
         // make sure eth was donated
         if (_inputAssetA.assetType != AztecTypes.AztecAssetType.ETH) {
-            revert ErrorLib.InvalidOutputA();
+            revert ErrorLib.InvalidInputA();
         }
 
         // make sure the output is the virtual token

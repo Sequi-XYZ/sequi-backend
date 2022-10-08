@@ -7,43 +7,48 @@ import {AztecTypes} from "../../../aztec/libraries/AztecTypes.sol";
 
 // Example-specific imports
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {ExampleBridgeContract} from "../../../bridges/example/ExampleBridge.sol";
+import {SequiBridge} from "../../../bridges/sequi/SequiBridge.sol";
 import {ErrorLib} from "../../../bridges/base/ErrorLib.sol";
+import {console} from "forge-std/console.sol";
 
 // @notice The purpose of this test is to directly test convert functionality of the bridge.
 contract SequiUnitTest is BridgeTestBase {
-    address private constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
-    address private constant BENEFICIARY = address(11);
+    address private constant CREATOR = address(0xb0b);
+    uint256 private constant MIN_DONATION = .001 ether;
+    uint64 private creatorId;
 
     address private rollupProcessor;
     // The reference to the example bridge
-    ExampleBridgeContract private bridge;
+    SequiBridge private bridge;
+
+    AztecTypes.AztecAsset private ethAsset;
+    // The receipt token
+    AztecTypes.AztecAsset private receiptAsset;
 
     // @dev This method exists on RollupProcessor.sol. It's defined here in order to be able to receive ETH like a real
     //      rollup processor would.
     function receiveEthFromBridge(uint256 _interactionNonce) external payable {}
 
     function setUp() public {
-        // In unit tests we set address of rollupProcessor to the address of this test contract
-        rollupProcessor = address(this);
-
         // Deploy a new example bridge
-        bridge = new ExampleBridgeContract(rollupProcessor);
+        bridge = new SequiBridge(rollupProcessor);
 
-        // Set ETH balance of bridge and BENEFICIARY to 0 for clarity (somebody sent ETH to that address on mainnet)
+        vm.prank(CREATOR);
+        vm.label(CREATOR, "Creator");
+        creatorId = bridge.createAccount(MIN_DONATION);
+
         vm.deal(address(bridge), 0);
-        vm.deal(BENEFICIARY, 0);
-
-        // Use the label cheatcode to mark the address with "Example Bridge" in the traces
         vm.label(address(bridge), "Example Bridge");
 
         // Subsidize the bridge when used with Dai and register a beneficiary
-        AztecTypes.AztecAsset memory daiAsset = getRealAztecAsset(DAI);
-        uint256 criteria = bridge.computeCriteria(daiAsset, emptyAsset, daiAsset, emptyAsset, 0);
-        uint32 gasPerMinute = 200;
-        SUBSIDY.subsidize{value: 1 ether}(address(bridge), criteria, gasPerMinute);
+        ethAsset = getRealAztecAsset(address(0));
+        receiptAsset = AztecTypes.AztecAsset({
+            id: 1,
+            erc20Address: address(0),
+            assetType: AztecTypes.AztecAssetType.VIRTUAL
+        });
 
-        SUBSIDY.registerBeneficiary(BENEFICIARY);
+        rollupProcessor = address(this);
     }
 
     function testInvalidCaller(address _callerAddress) public {
@@ -51,75 +56,54 @@ contract SequiUnitTest is BridgeTestBase {
         // Use HEVM cheatcode to call from a different address than is address(this)
         vm.prank(_callerAddress);
         vm.expectRevert(ErrorLib.InvalidCaller.selector);
-        bridge.convert(emptyAsset, emptyAsset, emptyAsset, emptyAsset, 0, 0, 0, address(0));
+        bridge.convert(emptyAsset, emptyAsset, emptyAsset, emptyAsset, 0, 0, creatorId, address(0));
     }
 
     function testInvalidInputAssetType() public {
         vm.expectRevert(ErrorLib.InvalidInputA.selector);
-        bridge.convert(emptyAsset, emptyAsset, emptyAsset, emptyAsset, 0, 0, 0, address(0));
+        bridge.convert(emptyAsset, emptyAsset, receiptAsset, emptyAsset, 0, 0, creatorId, address(0));
     }
 
     function testInvalidOutputAssetType() public {
-        AztecTypes.AztecAsset memory inputAssetA = AztecTypes.AztecAsset({
-            id: 1,
-            erc20Address: DAI,
-            assetType: AztecTypes.AztecAssetType.ERC20
-        });
         vm.expectRevert(ErrorLib.InvalidOutputA.selector);
-        bridge.convert(inputAssetA, emptyAsset, emptyAsset, emptyAsset, 0, 0, 0, address(0));
+        bridge.convert(ethAsset, emptyAsset, emptyAsset, emptyAsset, 0, 0, creatorId, address(0));
     }
 
-    function testExampleBridgeUnitTestFixed() public {
-        testExampleBridgeUnitTest(10 ether);
-    }
-
-    // @notice The purpose of this test is to directly test convert functionality of the bridge.
-    // @dev In order to avoid overflows we set _depositAmount to be uint96 instead of uint256.
-    function testExampleBridgeUnitTest(uint96 _depositAmount) public {
+    function testDonateEth() public {
         vm.warp(block.timestamp + 1 days);
 
-        // Define input and output assets
-        AztecTypes.AztecAsset memory inputAssetA = AztecTypes.AztecAsset({
-            id: 1,
-            erc20Address: DAI,
-            assetType: AztecTypes.AztecAssetType.ERC20
-        });
+        deal(address(bridge), MIN_DONATION);
 
-        AztecTypes.AztecAsset memory outputAssetA = inputAssetA;
-
-        // Rollup processor transfers ERC20 tokens to the bridge before calling convert. Since we are calling
-        // bridge.convert(...) function directly we have to transfer the funds in the test on our own. In this case
-        // we'll solve it by directly minting the _depositAmount of Dai to the bridge.
-        deal(DAI, address(bridge), _depositAmount);
-
-        // Store dai balance before interaction to be able to verify the balance after interaction is correct
-        uint256 daiBalanceBefore = IERC20(DAI).balanceOf(rollupProcessor);
+        uint256 creatorBalanceBefore = CREATOR.balance;
 
         (uint256 outputValueA, uint256 outputValueB, bool isAsync) = bridge.convert(
-            inputAssetA, // _inputAssetA - definition of an input asset
+            ethAsset,
             emptyAsset, // _inputAssetB - not used so can be left empty
-            outputAssetA, // _outputAssetA - in this example equal to input asset
+            receiptAsset, // _outputAssetA - in this example equal to input asset
             emptyAsset, // _outputAssetB - not used so can be left empty
-            _depositAmount, // _totalInputValue - an amount of input asset A sent to the bridge
+            MIN_DONATION, // _totalInputValue - an amount of input asset A sent to the bridge
             0, // _interactionNonce
-            0, // _auxData - not used in the example bridge
-            BENEFICIARY // _rollupBeneficiary - address, the subsidy will be sent to
+            creatorId, // _auxData - not used in the example bridge
+            address(0) // _rollupBeneficiary - address, the subsidy will be sent to
         );
+
+        assertEq(CREATOR.balance, creatorBalanceBefore + MIN_DONATION);
+        assertEq(outputValueA, 1); // 1 receipt token
 
         // Now we transfer the funds back from the bridge to the rollup processor
         // In this case input asset equals output asset so I only work with the input asset definition
         // Basically in all the real world use-cases output assets would differ from input assets
-        IERC20(inputAssetA.erc20Address).transferFrom(address(bridge), rollupProcessor, outputValueA);
+        // IERC20(inputAssetA.erc20Address).transferFrom(address(bridge), rollupProcessor, outputValueA);
 
-        assertEq(outputValueA, _depositAmount, "Output value A doesn't equal deposit amount");
-        assertEq(outputValueB, 0, "Output value B is not 0");
-        assertTrue(!isAsync, "Bridge is incorrectly in an async mode");
+        // assertEq(outputValueA, _depositAmount, "Output value A doesn't equal deposit amount");
+        // assertEq(outputValueB, 0, "Output value B is not 0");
+        // assertTrue(!isAsync, "Bridge is incorrectly in an async mode");
 
-        uint256 daiBalanceAfter = IERC20(DAI).balanceOf(rollupProcessor);
+        // uint256 daiBalanceAfter = IERC20(DAI).balanceOf(rollupProcessor);
 
-        assertEq(daiBalanceAfter - daiBalanceBefore, _depositAmount, "Balances must match");
+        // assertEq(daiBalanceAfter - daiBalanceBefore, _depositAmount, "Balances must match");
 
-        SUBSIDY.withdraw(BENEFICIARY);
-        assertGt(BENEFICIARY.balance, 0, "Subsidy was not claimed");
+        // SUBSIDY.withdraw(BENEFICIARY);
+        // assertGt(BENEFICIARY.balance, 0, "Subsidy was not claimed");
     }
 }
