@@ -30,6 +30,7 @@ contract SequiUnitTest is BridgeTestBase {
     function receiveEthFromBridge(uint256 _interactionNonce) external payable {}
 
     function setUp() public {
+        rollupProcessor = address(this);
         // Deploy a new example bridge
         bridge = new SequiBridge(rollupProcessor);
 
@@ -47,13 +48,11 @@ contract SequiUnitTest is BridgeTestBase {
             erc20Address: address(0),
             assetType: AztecTypes.AztecAssetType.VIRTUAL
         });
-
-        rollupProcessor = address(this);
     }
 
-    function testInvalidCaller(address _callerAddress) public {
-        vm.assume(_callerAddress != rollupProcessor);
-        // Use HEVM cheatcode to call from a different address than is address(this)
+    function testInvalidCaller() public {
+        address _callerAddress = address(0xA11c3);
+
         vm.prank(_callerAddress);
         vm.expectRevert(ErrorLib.InvalidCaller.selector);
         bridge.convert(emptyAsset, emptyAsset, emptyAsset, emptyAsset, 0, 0, creatorId, address(0));
@@ -90,20 +89,6 @@ contract SequiUnitTest is BridgeTestBase {
         assertEq(CREATOR.balance, creatorBalanceBefore + MIN_DONATION);
         assertEq(outputValueA, 1); // 1 receipt token
 
-        // Now we transfer the funds back from the bridge to the rollup processor
-        // In this case input asset equals output asset so I only work with the input asset definition
-        // Basically in all the real world use-cases output assets would differ from input assets
-        // IERC20(inputAssetA.erc20Address).transferFrom(address(bridge), rollupProcessor, outputValueA);
-
-        // assertEq(outputValueA, _depositAmount, "Output value A doesn't equal deposit amount");
-        // assertEq(outputValueB, 0, "Output value B is not 0");
-        // assertTrue(!isAsync, "Bridge is incorrectly in an async mode");
-
-        // uint256 daiBalanceAfter = IERC20(DAI).balanceOf(rollupProcessor);
-
-        // assertEq(daiBalanceAfter - daiBalanceBefore, _depositAmount, "Balances must match");
-
-        // SUBSIDY.withdraw(BENEFICIARY);
-        // assertGt(BENEFICIARY.balance, 0, "Subsidy was not claimed");
+        assertTrue(!isAsync, "Bridge is incorrectly in an async mode");
     }
 }

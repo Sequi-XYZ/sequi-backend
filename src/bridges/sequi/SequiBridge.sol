@@ -82,14 +82,10 @@ contract SequiBridge is BridgeBase {
         // }
 
         // make sure eth was donated
-        if (_inputAssetA.assetType != AztecTypes.AztecAssetType.ETH) {
-            revert ErrorLib.InvalidInputA();
-        }
+        if (_inputAssetA.assetType != AztecTypes.AztecAssetType.ETH) revert ErrorLib.InvalidInputA();
 
         // make sure the output is the virtual token
-        if (_outputAssetA.assetType != AztecTypes.AztecAssetType.VIRTUAL) {
-            revert ErrorLib.InvalidOutputA();
-        }
+        if (_outputAssetA.assetType != AztecTypes.AztecAssetType.VIRTUAL) revert ErrorLib.InvalidOutputA();
 
         uint256 amountOut = _totalInputValue / receiver.paymentAmount;
 
