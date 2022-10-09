@@ -14,7 +14,7 @@ import {console} from "forge-std/console.sol";
 // @notice The purpose of this test is to directly test convert functionality of the bridge.
 contract SequiUnitTest is BridgeTestBase {
     address private constant CREATOR = address(0xb0b);
-    uint256 private constant MIN_DONATION = .001 ether;
+    uint256 private constant DONATION = .01 ether;
     uint64 private creatorId;
 
     address private rollupProcessor;
@@ -36,7 +36,7 @@ contract SequiUnitTest is BridgeTestBase {
 
         vm.prank(CREATOR);
         vm.label(CREATOR, "Creator");
-        creatorId = bridge.createAccount(MIN_DONATION);
+        creatorId = bridge.createAccount(DONATION);
 
         vm.deal(address(bridge), 0);
         vm.label(address(bridge), "Example Bridge");
@@ -71,7 +71,7 @@ contract SequiUnitTest is BridgeTestBase {
     function testDonateEth() public {
         vm.warp(block.timestamp + 1 days);
 
-        deal(address(bridge), MIN_DONATION);
+        deal(address(bridge), DONATION);
 
         uint256 creatorBalanceBefore = CREATOR.balance;
 
@@ -80,13 +80,13 @@ contract SequiUnitTest is BridgeTestBase {
             emptyAsset, // _inputAssetB - not used so can be left empty
             receiptAsset, // _outputAssetA - in this example equal to input asset
             emptyAsset, // _outputAssetB - not used so can be left empty
-            MIN_DONATION, // _totalInputValue - an amount of input asset A sent to the bridge
+            DONATION, // _totalInputValue - an amount of input asset A sent to the bridge
             0, // _interactionNonce
             creatorId, // _auxData - not used in the example bridge
             address(0) // _rollupBeneficiary - address, the subsidy will be sent to
         );
 
-        assertEq(CREATOR.balance, creatorBalanceBefore + MIN_DONATION);
+        assertEq(CREATOR.balance, creatorBalanceBefore + DONATION);
         assertEq(outputValueA, 1); // 1 receipt token
 
         assertTrue(!isAsync, "Bridge is incorrectly in an async mode");

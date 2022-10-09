@@ -67,8 +67,8 @@ contract SequiE2ETest is BridgeTestBase {
             _auxData: creatorId
         });
 
-        // vm.expectEmit(true, true, false, true);
-        // emit DefiBridgeProcessed(bridgeCallData, getNextNonce(), MIN_DONATION, 0, 0, true, "");
+        vm.expectEmit(true, true, false, true);
+        emit DefiBridgeProcessed(bridgeCallData, getNextNonce(), MIN_DONATION, 1, 0, true, "");
 
         sendDefiRollup(bridgeCallData, MIN_DONATION);
         assertEq(CREATOR.balance, creatorBalanceBefore + MIN_DONATION, "did not receive");
