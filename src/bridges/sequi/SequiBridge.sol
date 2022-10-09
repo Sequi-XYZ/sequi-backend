@@ -31,15 +31,12 @@ contract SequiBridge is BridgeBase {
         uint256 paymentAmount;
     }
 
-    // Maps id to a donee
-
     /* MAPPING */
     mapping(uint64 => CreatorInfo) public creators;
 
     constructor(address _rollupProcessor) BridgeBase(_rollupProcessor) {}
 
     /* Create Struct */
-
     function createAccount(uint256 amount) public returns (uint64) {
         uint64 creator = ++creatorID;
         creators[creator] = CreatorInfo({addr: msg.sender, paymentAmount: amount});

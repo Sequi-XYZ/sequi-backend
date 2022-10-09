@@ -14,12 +14,12 @@ import {console} from "forge-std/console.sol";
 contract SequiE2ETest is BridgeTestBase {
     address private constant CREATOR = address(0xb0b);
     uint256 private constant MIN_DONATION = .001 ether;
-    uint64 private creatorId;
 
     // The reference to the example bridge
     SequiBridge private bridge;
     // To store the id of the example bridge after being added
     uint256 private bridgeAddressId;
+    uint64 private creatorId;
 
     AztecTypes.AztecAsset private ethAsset;
     // The receipt token
